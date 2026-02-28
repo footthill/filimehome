@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head><meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Video Player with Improved YouTube Spinner</title>
+        <style>    
+        /* Centering the spinner */  
+          .spinner-container {     
+               position: absolute;  
+               top: 50%;   
+                    left: 50%;     
+                       transform: translate(-50%, -50%);  
+                      }    /* Improved YouTube-style spinner */
+                          .spinner {        width: 50px; 
+                                   height: 50px;       
+                                    animation: rotate 2s linear infinite;   
+                                 }    .spinner circle {       
+                                     fill: none;  
+                                          stroke: #09F2DC;       
+                                           stroke-width: 3;   
+                                                stroke-linecap: round; 
+                                                       stroke-dasharray: 150;   
+                                                            stroke-dashoffset: 150;  
+                                                                  animation: draw 2s ease-in-out infinite;    
+                                                                }  
+                                                                  @keyframes rotate {      
+                                                                      100% {          
+                                                                          transform: rotate(360deg);        }    }    @keyframes draw {        0% {            stroke-dashoffset: 150;        }        50% {            stroke-dashoffset: 0;        }        100% {            stroke-dashoffset: -150;        }    }    /* Video container */    .video-container {        position: relative;        width: 100%;        max-width: 640px;        margin: 0 auto;        padding-top: 56.25%; /* 16:9 aspect ratio */   }    .video-container iframe {        position: absolute;        top: 0;        left: 0;        width: 100%;        height: 100%;    }
+                                                                          </style>
+                                                                          </head>
+                                                                          <body>
+<div class="video-container">    <div class="spinner-container" id="spinner">        <svg class="spinner" viewBox="0 0 50 50">            <circle cx="25" cy="25" r="20"></circle>
+            </svg>    </div>    <iframe class="video-iframe" src="https:\\short.icu/_63t8qPyA3  " frameborder="0" scrolling="no" allowfullscreen>
+                </iframe></div>
+                <script>    const spinner = document.getElementById('spinner');    const video = document.querySelector('.video-iframe');    function hideSpinner() {        spinner.style.opacity = '0';        setTimeout(() => spinner.style.display = 'none', 300);    }    video.onload = hideSpinner;    video.onerror = hideSpinner;    setTimeout(hideSpinner, 15000);
+
+                </script></body>   </html> ",
+  

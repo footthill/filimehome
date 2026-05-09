@@ -27,12 +27,13 @@ function App() {
           <Route path="/details/:id" element={<Layout><MovieDetails/></Layout>} />
           <Route path="/subscription" element={<Layout><Subscription/></Layout>} />
           <Route path="/watch" element={<MovieWatch/>} />
-          <Route path="/Appcoming" element={<AppComingSoon/>} />
+          <Route path="/appcoming" element={<AppComingSoon/>} />
           <Route path="/register" element={<AppRegister />} />
           </Routes>
-        <SidebarResizeListener />
-    </Router>
-  );
-}
-
-export default App;
+         <SidebarResizeListener />
+     </Router>
+   );
+ }
+ 
+ export default App;
+ 

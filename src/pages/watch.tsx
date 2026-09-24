@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaExpand,
    FaArrowLeft,
@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 
 const MovieWatch = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,8 +26,17 @@ const MovieWatch = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { url: videoUrl, name: title } = location.state || {};
-  
+  // /watch?url=<watchUrl>&dl=<directPlayableMp4>&name=<title>
+  const videoUrl = searchParams.get("url") || "";
+  const directUrl = searchParams.get("dl") || "";
+  const title = searchParams.get("name") || "";
+
+  // Is the watch URL a rebamovie DASH manifest (.mpd)? Native <video> can't
+  // play it, so fall back to the direct progressive MP4 (downloadUrl) which
+  // CAN be streamed — we keep the DASH url as the watchUrl for posterity.
+  const isDashManifest = /manifest\.mpd|\.mpd\s*(?:$|\?)/i.test(videoUrl);
+  const playableUrl = isDashManifest && directUrl ? directUrl : videoUrl;
+
   useEffect(()=>{
       console.log(isFullscreen);
   },[isFullscreen])
@@ -66,7 +75,7 @@ const MovieWatch = () => {
         <FaExclamationCircle className="text-yellow-500 text-6xl mb-6" />
         <p className="mb-4">This video cannot be streamed.</p>
         <a
-          href={videoUrl}
+          href={directUrl || videoUrl}
           download
           className="bg-yellow-500 px-6 py-3 rounded text-black font-bold"
         >
@@ -85,14 +94,16 @@ const MovieWatch = () => {
         "youtube.com",
         "vimeo.com",
         "dailymotion.com",
-        "twitch.tv"
+        "twitch.tv",
+        "rumble.com",
       ];
       
       const isAllowedIframe = allowedIframeHosts.some(host => 
         parsed.hostname.includes(host)
       );
       
-      if (isAllowedIframe) {
+      // DASH manifests are never iframes — they stream through <video>.
+      if (isAllowedIframe && !isDashManifest) {
         setIframesrc(parsed.href);
       } else {
         setIframesrc(null);
@@ -100,7 +111,7 @@ const MovieWatch = () => {
     } catch {
       setIframesrc(null);
     }
-  }, [videoUrl]);
+  }, [videoUrl, isDashManifest]);
 
   /* ------------------ VIDEO EVENTS ------------------ */
   useEffect(() => {
@@ -306,7 +317,7 @@ const MovieWatch = () => {
       {!iframesrc ? (
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={playableUrl}
           className="w-full h-full object-contain"
           preload="metadata"
         >

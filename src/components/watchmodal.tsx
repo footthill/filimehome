@@ -26,7 +26,13 @@ const WatchModal = ({ onClose, videos, poster, movieName, trailerUrl, option }: 
 
   const handleVideoClick = (video: Video) => {
     if (mode === 'watch') {
-      navigate(`/watch?url=${encodeURIComponent(video.watchUrl)}&backdrop=${poster}&name=${movieName}`);
+      const params = new URLSearchParams({
+        url: video.watchUrl || '',
+        dl: video.downloadUrl || '',
+        backdrop: poster || '',
+        name: movieName || '',
+      });
+      navigate(`/watch?${params.toString()}`);
     } else {
       window.open(video.downloadUrl, '_blank');
     }

@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiDownload, FiX } from 'react-icons/fi';
 import { FaPlay } from 'react-icons/fa6';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { openDownloadWithFreshToken, prefetchRebaEntry } from '../lib/rebaFresher';
 
 interface Video {
   direct: boolean;
   downloadUrl: string;
   watchUrl: string;
   title: string;
+  // rebamovie self-heal hints passed through to the worker token fresher.
+  movieId?: string;
+  season?: number;
+  episode?: number;
 }
 
 interface WatchModalProps {
@@ -22,9 +28,21 @@ interface WatchModalProps {
 
 const WatchModal = ({ onClose, videos, poster, movieName, trailerUrl, option }: WatchModalProps) => {
   const [mode, setMode] = useState<'watch' | 'download'>(option);
+  const [resolving, setResolving] = useState(false);
   const navigate = useNavigate();
 
-  const handleVideoClick = (video: Video) => {
+  // Warm the first entry only, so the common "grab episode 1" tap is instant
+  // without firing a call per row (which would trip rebamovie's rate limiter).
+  // The rest warm on hover/focus via prefetchRebaEntry.
+  useEffect(() => {
+    if (videos[0]) prefetchRebaEntry(videos[0]);
+  }, [videos]);
+
+  // rebamovie/Wix links are signed and expire, so mint a fresh one via the
+  // worker token fresher before handing it off. Watch mode is skipped here
+  // because the /watch page re-mints on mount (covering reloads/shared links),
+  // so doing it in both places would double the /downloadData calls.
+  const handleVideoClick = async (video: Video) => {
     if (mode === 'watch') {
       const params = new URLSearchParams({
         url: video.watchUrl || '',
@@ -32,9 +50,28 @@ const WatchModal = ({ onClose, videos, poster, movieName, trailerUrl, option }: 
         backdrop: poster || '',
         name: movieName || '',
       });
+      if (video.movieId) params.set('movieId', video.movieId);
+      if (video.season != null) params.set('season', String(video.season));
+      if (video.episode != null) params.set('episode', String(video.episode));
       navigate(`/watch?${params.toString()}`);
-    } else {
-      window.open(video.downloadUrl, '_blank');
+      return;
+    }
+
+    setResolving(true);
+    try {
+      await openDownloadWithFreshToken({
+        title: video.title,
+        watchUrl: video.watchUrl || '',
+        downloadUrl: video.downloadUrl || '',
+        direct: video.direct,
+        movieId: video.movieId,
+        season: video.season,
+        episode: video.episode,
+      });
+    } catch {
+      toast.error('Could not get a valid download link. Please try again.');
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -110,12 +147,21 @@ const WatchModal = ({ onClose, videos, poster, movieName, trailerUrl, option }: 
             {videos.map((video, idx) => (
               <div
                 key={idx}
-                onClick={() => handleVideoClick(video)}
-                className="flex justify-between items-center cursor-pointer min-w-[150px] px-4 py-2 bg-gray-800/70 hover:bg-green-600 hover:text-black rounded-lg transition font-medium"
+                onClick={() => !resolving && handleVideoClick(video)}
+                onMouseEnter={() => prefetchRebaEntry(video)}
+                onFocus={() => prefetchRebaEntry(video)}
+                tabIndex={0}
+                className={`flex justify-between items-center min-w-[150px] px-4 py-2 rounded-lg transition font-medium ${
+                  resolving
+                    ? 'bg-gray-800/50 text-gray-400 cursor-wait'
+                    : 'bg-gray-800/70 hover:bg-green-600 hover:text-black cursor-pointer'
+                }`}
               >
                 <span className="truncate">{video.title}</span>
                 <span className="text-xs flex items-center gap-1">
-                  {mode === 'watch' ? (
+                  {resolving ? (
+                    <span>Loading…</span>
+                  ) : mode === 'watch' ? (
                     <>Play <FaPlay className="ml-1" /></>
                   ) : (
                     <>Download <FiDownload className="ml-1" /></>

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { HiOutlineHome,  HiOutlineCollection } from 'react-icons/hi';
+import { HiOutlineHome, HiOutlineCollection, HiOutlineSparkles } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiCompass } from 'react-icons/fi';
 
@@ -10,7 +10,8 @@ const BottomNav = () => {
   const items = [
     { label: 'Home', icon: <HiOutlineHome size={20} />, link: '/' },
     { label: 'Explore', icon: <FiCompass size={20} />, link: '/browse' },
-    { label: 'Abasobanuzi', icon: <HiOutlineCollection size={20} />, link: '/subscription' },
+    { label: 'Abasobanuzi', icon: <HiOutlineCollection size={20} />, link: '/narrators' },
+    { label: 'No Ads', icon: <HiOutlineSparkles size={20} />, link: '/subscription' },
   ];
 
   return (

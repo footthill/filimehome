@@ -8,7 +8,8 @@ import {
   FiMap,         // for Adventure
   FiCpu,          // for Sci-Fi
   FiHome,
-  FiCompass
+  FiCompass,
+  FiStar,
 } from 'react-icons/fi';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -32,6 +33,7 @@ interface GenreItem {
 const sidebarMenuTop: MenuItem[] = [
   { label: 'Home', link: '/', Icon: FiHome},
   { label: 'Explore', link: '/browse', Icon: FiCompass },
+  { label: 'Remove Ads', link: '/subscription', Icon: FiStar },
 ];
 
 const genres: GenreItem[] = [

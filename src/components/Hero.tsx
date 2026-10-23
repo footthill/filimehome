@@ -14,6 +14,7 @@ interface Movie {
   tmdb_overview?: string | null;
   score: number;
   modifiedAt: string;
+  hero_order?: number | null;
 }
 
 const PAGE_SIZE = 8;
@@ -27,10 +28,12 @@ const MovieHeroSection: React.FC = () => {
       async (client) => {
         const { data, error, count } = await client
           .from('moviesv2')
-          .select('id, title, backdrop, tmdb_overview, image, score, modifiedAt')
+          .select('id, title, backdrop, tmdb_overview, image, score, modifiedAt, hero_order')
+          .order('hero_order', { ascending: true, nullsFirst: false })
           .order('modifiedAt', { ascending: false })
           .limit(PAGE_SIZE);
-        return { data, error, count: count ?? undefined };
+        if (error) throw error;
+        return { data, error: null, count: count ?? undefined };
       }
     );
 

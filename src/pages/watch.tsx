@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import { FaExclamationCircle } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { resolveFreshUrl, isRebaLink, isStaleSignedUrl } from "../lib/rebaFresher";
 
 const MovieWatch = () => {
   const navigate = useNavigate();
@@ -16,6 +17,12 @@ const MovieWatch = () => {
   const controlsTimeoutRef = useRef<NodeJS.Timeout>(null);
 
   const [iframesrc, setIframesrc] = useState<string | null>(null);
+
+  // Freshened signed MP4 (rebamovie/Wix tokens expire; see lib/rebaFresher).
+  const [freshDl, setFreshDl] = useState<string>("");
+  // Whether the one-shot freshness resolve has settled. Guards the "stream could
+  // not be loaded" state so we don't flash it while the mint is still in flight.
+  const [freshResolved, setFreshResolved] = useState(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -30,12 +37,57 @@ const MovieWatch = () => {
   const videoUrl = searchParams.get("url") || "";
   const directUrl = searchParams.get("dl") || "";
   const title = searchParams.get("name") || "";
+  // Self-heal hints: the rebamovie item id + episode locator, so the worker can
+  // re-pull a fresh watch URL when the stored token has expired.
+  const movieId = searchParams.get("movieId") || "";
+  const seasonParam = searchParams.get("season");
+  const episodeParam = searchParams.get("episode");
+  const season = seasonParam ? Number(seasonParam) : undefined;
+  const episode = episodeParam ? Number(episodeParam) : undefined;
 
-  // Is the watch URL a rebamovie DASH manifest (.mpd)? Native <video> can't
-  // play it, so fall back to the direct progressive MP4 (downloadUrl) which
-  // CAN be streamed — we keep the DASH url as the watchUrl for posterity.
-  const isDashManifest = /manifest\.mpd|\.mpd\s*(?:$|\?)/i.test(videoUrl);
-  const playableUrl = isDashManifest && directUrl ? directUrl : videoUrl;
+  // Reba watch URLs are streaming manifests (HLS .m3u8 now, DASH .mpd before)
+  // that a native <video> element can't play reliably outside Safari, so fall
+  // back to the direct progressive MP4 (downloadUrl / "dl") which CAN be
+  // streamed — we keep the manifest url as the watchUrl for posterity.
+  const isStreamManifest = /manifest\.mpd|\.m3u8(?:\?|$)/i.test(videoUrl);
+
+  // Safety net: a direct /watch visit (reload, shared/bookmarked link) can carry
+  // an expired Wix token, since the DB stores the stable manifest URL. Re-mint a
+  // fresh signed MP4 on mount so playback still works without a scraper run.
+  useEffect(() => {
+    let cancelled = false;
+    const source = videoUrl || directUrl;
+    if (!source || !isRebaLink(source)) {
+      setFreshDl("");
+      setFreshResolved(true);
+      return;
+    }
+    // requireFresh: never adopt a URL whose token is already expired — fall
+    // through to the stored one instead, so playback fails loudly rather than
+    // silently stalling on a dead link. movieId lets the worker self-heal a
+    // dead manifest token by re-pulling the episode's fresh watch URL.
+    resolveFreshUrl({ title, watchUrl: videoUrl, downloadUrl: directUrl, direct: true, movieId, season, episode })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.verified && r.downloadUrl) setFreshDl(r.downloadUrl);
+        else if (isStaleSignedUrl(directUrl)) setFreshDl("");
+        else setFreshDl(directUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFreshDl("");
+      })
+      .finally(() => {
+        if (!cancelled) setFreshResolved(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [videoUrl, directUrl, title, movieId, season, episode]);
+
+  const effectiveDirect = freshDl || (isStaleSignedUrl(directUrl) ? '' : directUrl);
+  // Prefer the freshly minted MP4 whenever we have one — it plays in <video>
+  // natively, unlike the HLS/DASH manifest.
+  const playableUrl = effectiveDirect || (isStreamManifest ? '' : videoUrl);
 
   useEffect(()=>{
       console.log(isFullscreen);
@@ -102,8 +154,8 @@ const MovieWatch = () => {
         parsed.hostname.includes(host)
       );
       
-      // DASH manifests are never iframes — they stream through <video>.
-      if (isAllowedIframe && !isDashManifest) {
+      // Streaming manifests are never iframes — they play through <video>.
+      if (isAllowedIframe && !isStreamManifest) {
         setIframesrc(parsed.href);
       } else {
         setIframesrc(null);
@@ -111,7 +163,7 @@ const MovieWatch = () => {
     } catch {
       setIframesrc(null);
     }
-  }, [videoUrl, isDashManifest]);
+  }, [videoUrl, isStreamManifest]);
 
   /* ------------------ VIDEO EVENTS ------------------ */
   useEffect(() => {
@@ -304,6 +356,25 @@ const MovieWatch = () => {
     
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
+
+  /* ------------------ UNPLAYABLE MANIFEST ------------------ */
+  // A manifest watchUrl with no mintable MP4 — <video> can't play the manifest
+  // directly, so surface a clear message instead of a frozen player. Waits until
+  // the resolve settles so this never flashes mid-mint.
+  if (isStreamManifest && !effectiveDirect && freshResolved) {
+    return (
+      <div className="h-screen w-screen bg-black text-white flex flex-col items-center justify-center gap-4">
+        <FaExclamationCircle className="text-yellow-500 text-6xl" />
+        <p className="text-lg">This stream could not be loaded.</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="bg-yellow-500 px-6 py-2 rounded text-black font-semibold"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   /* ------------------ RENDER ------------------ */
   return (

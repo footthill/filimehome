@@ -15,12 +15,17 @@ import axios from "axios";
 import WatchModal from "../components/watchmodal";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
+import { openDownloadWithFreshToken, prefetchRebaEntry } from "../lib/rebaFresher";
 
 interface MovieVideo {
   title: string;
   downloadUrl: string;
   direct: boolean;
   watchUrl: string;
+  // rebamovie self-heal hints passed through to the worker token fresher.
+  movieId?: string;
+  season?: number;
+  episode?: number;
 }
 
 interface SupMovie {
@@ -33,7 +38,23 @@ interface SupMovie {
   poster?: string | null;
   image?: string | null;
   modifiedAt?: string;
+  link?: string;
   Downloadurls: MovieVideo[];
+}
+
+/**
+ * The rebamovie catalog item id is the last path segment of the row's `link`
+ * (https://www.rebamovie.com/movie/<movieId>). The worker uses it to re-pull a
+ * fresh watch URL when the stored token has expired.
+ */
+function rebaMovieId(link?: string): string {
+  return String(link || '').split('?')[0].split('/').filter(Boolean).pop() || '';
+}
+
+/** "Title - S01E02" -> { season: 1, episode: 2 }; {} when not an episode. */
+function parseEpisode(title: string): { season?: number; episode?: number } {
+  const m = /S(\d{1,3})\s*E(\d{1,3})/i.exec(title || '');
+  return m ? { season: Number(m[1]), episode: Number(m[2]) } : {};
 }
 
 interface UserComment {
@@ -190,12 +211,43 @@ const MovieDetails: FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [openMode, setOpenMode] = useState<"watch" | "download">("watch");
+  const [resolvingDownload, setResolvingDownload] = useState<number | null>(null);
 
   // Comment states
   const [comments, setComments] = useState<UserComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [guestName, setGuestName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline "Download" in the Movie Videos list — rebamovie/Wix links are
+  // signed and expire, so mint a fresh MP4 via the worker token fresher
+  // before opening. openDownloadWithFreshToken reserves the tab inside the click
+  // so the popup blocker can't swallow the download (iOS Safari fails silently).
+  const openDownload = async (idx: number, video: MovieVideo) => {
+    setResolvingDownload(idx);
+    try {
+      await openDownloadWithFreshToken({
+        title: video.title,
+        watchUrl: video.watchUrl || '',
+        downloadUrl: video.downloadUrl || '',
+        direct: video.direct,
+        movieId: video.movieId,
+        season: video.season,
+        episode: video.episode,
+      });
+    } catch {
+      toast.error('Could not get a valid download link. Please try again.');
+    } finally {
+      setResolvingDownload(null);
+    }
+  };
+
+  // Warm the first entry only, so the common "grab episode 1" tap is instant
+  // without firing a call per row (which would trip rebamovie's rate limiter).
+  // The rest warm on hover/focus via prefetchRebaEntry.
+  useEffect(() => {
+    if (movieVideos[0]) prefetchRebaEntry(movieVideos[0]);
+  }, [movieVideos]);
 
   const open = (mode: "watch" | "download") => {
     setOpenMode(mode);
@@ -217,7 +269,18 @@ const MovieDetails: FC = () => {
         if (error || !data) throw new Error("Movie not found");
 
         setMovie(data);
-        setMovieVideos(data.Downloadurls || []);
+        // Decorate each entry with the self-heal hints the worker token fresher
+        // needs: the item's rebamovie id (from the row link) plus the season /
+        // episode parsed from the title. Both are only used as fallbacks — the
+        // worker matches on the stable media GUID first.
+        const movieId = rebaMovieId(data.link);
+        setMovieVideos(
+          (data.Downloadurls || []).map((v: MovieVideo) => ({
+            ...v,
+            movieId: v.movieId || movieId,
+            ...(v.season || v.episode ? {} : parseEpisode(v.title)),
+          }))
+        );
 
         // Fetch comments
         fetchComments();
@@ -601,14 +664,15 @@ const MovieDetails: FC = () => {
                       />
                       <span className="text-gray-300 font-medium">{video.title}</span>
                     </div>
-                    <a
-                      href={video.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1 text-sm font-semibold text-green-500 hover:text-green-600 transition"
+                    <button
+                      onClick={() => openDownload(idx, video)}
+                      onMouseEnter={() => prefetchRebaEntry(video)}
+                      onFocus={() => prefetchRebaEntry(video)}
+                      disabled={resolvingDownload === idx}
+                      className="px-3 py-1 text-sm font-semibold text-green-500 hover:text-green-600 transition disabled:text-gray-500 disabled:cursor-wait"
                     >
-                      Download
-                    </a>
+                      {resolvingDownload === idx ? "Resolving…" : "Download"}
+                    </button>
                   </li>
                 ))}
               </ul>

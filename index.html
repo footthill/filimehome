@@ -27,6 +27,28 @@
   <meta name="twitter:image" content="/logo192.png" />
 
   <link rel="apple-touch-icon" href="/logo192.png">
+
+  <!--
+    Monetag ads loader. Paid (ad-free) subscribers are stored in localStorage as
+    "fh_adfree"="1" (verified by the app against the subscription worker), so the
+    ad tag and the monetag service worker are only loaded for non-subscribers.
+  -->
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('fh_adfree') === '1') return;
+        var s = document.createElement('script');
+        s.src = 'https://quge5.com/88/tag.min.js';
+        s.setAttribute('data-zone', '286513');
+        s.setAttribute('async', '');
+        s.setAttribute('data-cfasync', 'false');
+        document.head.appendChild(s);
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

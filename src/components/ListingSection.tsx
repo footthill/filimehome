@@ -4,7 +4,7 @@ import MovieSwiper from "./trending";
 const Listing=()=>{
     return <>
     
-        <MovieSwiper title={'Trending'} genres={['Rocky','Sankara Da Premiere',"Junior Giti",'Savimbi']} />
+        <MovieSwiper title={'Trending'} narrators={['Rocky', 'Sankara Da Premier', 'Junior Giti', 'Savimbi']} />
    
     </>
 }

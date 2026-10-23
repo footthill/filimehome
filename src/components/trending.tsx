@@ -24,29 +24,39 @@ interface RawMovie {
   modifiedAt: string;
   narrator: string;
   genres: string[];
+  trending_order?: number | null;
 }
 
 interface Props {
   genres?: string[];
+  /** Exact narrator names, e.g. 'Rocky'. */
+  narrators?: string[];
   title?: string | null;
 }
 
 const SKELETON_COUNT = 6;
 
-const MovieSwiper: React.FC<Props> = ({ genres = [], title = 'New Movies' }) => {
-  const queryKey = 'movies:swiper' + (genres.length > 0 ? `:${genres.join(',')}` : '');
+const MovieSwiper: React.FC<Props> = ({ genres = [], narrators = [], title = 'New Movies' }) => {
+  const queryKey =
+    'movies:swiper' +
+    (genres.length > 0 ? `:${genres.join(',')}` : '') +
+    (narrators.length > 0 ? `:n=${narrators.join(',')}` : '');
 
   const { data, isLoading } = useSupabaseQuery<Movie[]>(
     queryKey,
     async (client) => {
       let baseQuery = client
         .from('moviesv2')
-        .select('id, title, poster, image, modifiedAt, narrator, genres')
+        .select('id, title, poster, image, modifiedAt, narrator, genres, trending_order')
+        .order('trending_order', { ascending: true, nullsFirst: false })
         .order('modifiedAt', { ascending: false })
         .limit(12);
 
       if (genres.length > 0 && genres[0] !== 'All') {
         baseQuery = baseQuery.overlaps('genres', genres);
+      }
+      if (narrators.length > 0) {
+        baseQuery = baseQuery.in('narrator', narrators);
       }
 
       const { data, error } = await baseQuery;
@@ -87,28 +97,39 @@ const MovieSwiper: React.FC<Props> = ({ genres = [], title = 'New Movies' }) => 
       </h2>
 
       <div className="container mx-auto py-8">
-        <Swiper
-          spaceBetween={12}
-          loop={!isLoading && (data?.data?.length ?? 0) > 0}
-          autoplay={!isLoading ? {
-            delay: 4000,
-            disableOnInteraction: false,
-          } : false}
-          breakpoints={{
-            0: { slidesPerView: 3 },
-            768: { slidesPerView: 4 },
-            1024: { slidesPerView: 6 },
-          }}
-          className="mySwiper"
-        >
-          {isLoading || data?.data?.length === 0
-            ? renderSkeletonSlides()
-            : data?.data?.map((movie) => (
-                <SwiperSlide key={movie.id}>
-                  <MovieCard movie={movie} />
-                </SwiperSlide>
-              ))}
-        </Swiper>
+        {isLoading ? (
+          <Swiper
+            spaceBetween={12}
+            breakpoints={{
+              0: { slidesPerView: 3 },
+              768: { slidesPerView: 4 },
+              1024: { slidesPerView: 6 },
+            }}
+            className="mySwiper"
+          >
+            {renderSkeletonSlides()}
+          </Swiper>
+        ) : (data?.data?.length ?? 0) === 0 ? (
+          <p className="text-gray-400 py-6">No movies in this section yet.</p>
+        ) : (
+          <Swiper
+            spaceBetween={12}
+            loop
+            autoplay={{ delay: 4000, disableOnInteraction: false }}
+            breakpoints={{
+              0: { slidesPerView: 3 },
+              768: { slidesPerView: 4 },
+              1024: { slidesPerView: 6 },
+            }}
+            className="mySwiper"
+          >
+            {data?.data?.map((movie) => (
+              <SwiperSlide key={movie.id}>
+                <MovieCard movie={movie} />
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        )}
       </div>
     </section>
   );

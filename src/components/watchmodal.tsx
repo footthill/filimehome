@@ -147,7 +147,8 @@ const WatchModal = ({ onClose, videos, poster, movieName, trailerUrl, option }: 
             {videos.map((video, idx) => (
               <div
                 key={idx}
-                onClick={() => !resolving && handleVideoClick(video)}
+                data-ad={mode === 'watch' ? 'watch' : undefined}
+                    onClick={() => !resolving && handleVideoClick(video)}
                 onMouseEnter={() => prefetchRebaEntry(video)}
                 onFocus={() => prefetchRebaEntry(video)}
                 tabIndex={0}

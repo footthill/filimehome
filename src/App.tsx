@@ -14,6 +14,7 @@ import SidebarResizeListener from './components/isopen';
 import AppComingSoon from './pages/app';
 import AppRegister from './pages/register';
 import RouteTracker from './components/RouterTracker';
+import DownloadTray from './components/DownloadTray';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/register" element={<AppRegister />} />
           </Routes>
          <SidebarResizeListener />
+        <DownloadTray />
      </Router>
    );
  }

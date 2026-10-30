@@ -14,10 +14,14 @@
  *     have genuinely tried (and retried) to refresh it.
  *
  *  2. NEVER trip the popup blocker. A fresh URL only exists after an await, and
- *     browsers only honour window.open() synchronously inside a user gesture —
+ *     browsers only honour appOpen() synchronously inside a user gesture —
  *     iOS Safari blocks the post-await call outright, so the download would fail
  *     silently. We reserve a blank tab inside the click, then navigate it.
  */
+
+import { isNative } from './native';
+import { downloadInApp } from './nativeDownload';
+import { appOpen } from '../ads/adControl';
 
 const WORKER_URL = String(import.meta.env.VITE_SUBSCRIPTION_WORKER_URL || '').replace(/\/+$/, '');
 
@@ -199,7 +203,7 @@ export async function freshenRebaEntries(entries: FreshenedEntry[]): Promise<Fre
 /** MUST be called synchronously from a click handler. Returns null if blocked. */
 export function reserveTab(): Window | null {
   try {
-    const tab = window.open('', '_blank');
+    const tab = appOpen('', '_blank');
     // We navigate this to a third-party host, so drop the back-reference first
     // (reverse tabnabbing) while we still hold the handle.
     if (tab) tab.opener = null;
@@ -264,9 +268,27 @@ export async function openDownloadWithFreshToken(entry: FreshenedEntry): Promise
   const source = entry?.watchUrl || entry?.downloadUrl || '';
   const stored = entry?.downloadUrl || '';
 
+  // APK: download INSIDE the app (progress tray, saved to Documents/MihetoFilms). No Chrome.
+  if (isNative) {
+    let url = stored;
+    if (WORKER_URL && isRebaLink(source)) {
+      const cached = freshCache.get(cacheKey(entry));
+      if (cached && !isStaleSignedUrl(cached)) url = cached;
+      else {
+        const r = await resolveFreshUrl(entry, { requireFresh: true });
+        if (!r.verified || !r.downloadUrl) throw new Error(r.error || 'could not mint a valid download link');
+        freshCache.set(cacheKey(entry), r.downloadUrl);
+        url = r.downloadUrl;
+      }
+    }
+    if (!url) throw new Error('no url');
+    await downloadInApp(url, entry.title);
+    return;
+  }
+
   // Not a signed link (or no worker configured): nothing to verify or refresh.
   if (!WORKER_URL || !isRebaLink(source)) {
-    if (stored) window.open(stored, '_blank', 'noopener');
+    if (stored) appOpen(stored, '_blank', 'noopener');
     return;
   }
 
@@ -275,7 +297,7 @@ export async function openDownloadWithFreshToken(entry: FreshenedEntry): Promise
   // await, no popup-blocker exposure.
   const cached = freshCache.get(cacheKey(entry));
   if (cached && !isStaleSignedUrl(cached)) {
-    window.open(cached, '_blank', 'noopener');
+    appOpen(cached, '_blank', 'noopener');
     return;
   }
 

@@ -6,10 +6,12 @@ import {
 } from "react-icons/fa";
 import { FaExclamationCircle } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { setLandscape } from "../lib/native";
 import { resolveFreshUrl, isRebaLink, isStaleSignedUrl } from "../lib/rebaFresher";
 
 const MovieWatch = () => {
   const navigate = useNavigate();
+  useEffect(() => { void setLandscape(true); return () => { void setLandscape(false); }; }, []);
   const [searchParams] = useSearchParams();
 
   const videoRef = useRef<HTMLVideoElement>(null);

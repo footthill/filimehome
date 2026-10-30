@@ -55,6 +55,7 @@ jobs:
       - name: Generate Capacitor Android project and sync
         run: |
           npx cap add android
+          grep -q WRITE_EXTERNAL_STORAGE android/app/src/main/AndroidManifest.xml || sed -i 's#<application#<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <application#' android/app/src/main/AndroidManifest.xml
           npx cap sync android
           chmod +x android/gradlew
 

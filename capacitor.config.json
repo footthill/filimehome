@@ -2,5 +2,8 @@
   "appId": "com.mihetofilms.app",
   "appName": "MihetoFilms",
   "webDir": "dist",
-  "backgroundColor": "#000000"
+  "backgroundColor": "#000000",
+  "plugins": {
+    "SplashScreen": { "launchAutoHide": false, "backgroundColor": "#000000", "showSpinner": false }
+  }
 }

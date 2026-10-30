@@ -1,3 +1,4 @@
+import { appOpen } from "../ads/adControl";
 import React, { useEffect, useState, useCallback, type FC } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -609,7 +610,7 @@ const MovieDetails: FC = () => {
             {trailers[0] && (
               <button
                 onClick={() =>
-                  window.open(trailers[0].replace("/embed/", "/watch?v="), "_blank")
+                  appOpen(trailers[0].replace("/embed/", "/watch?v="), "_blank")
                 }
                 className="w-full py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition"
               >

@@ -37,3 +37,9 @@
   height: 12px;
 }
 
+
+/* ---- native app feel (only inside the APK) ---- */
+html.native-app, html.native-app body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+html.native-app body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.native-app input, html.native-app textarea { -webkit-user-select: text; user-select: text; }
+html.native-app ::-webkit-scrollbar { display: none; }

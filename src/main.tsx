@@ -4,7 +4,11 @@ import './index.css'
 import App from './App.tsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyAdFreeState } from './lib/subscription';
+import { initNative } from './lib/native';
+import { initAds } from './ads/adControl';
 
+void initNative();
+initAds();
 applyAdFreeState();
 
 const queryClient = new QueryClient();
